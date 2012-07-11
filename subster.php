@@ -1,7 +1,8 @@
 <?
 	define("DEBUG",			0);
 	define("HISTORY_FILE",	dirname ( __FILE__ )."/subster-history.txt");
-	define("VIDEOS_DIR",	"/volume1/video/");
+	//define("VIDEOS_DIR",	"/volume1/video/");
+	define("VIDEOS_DIR",	"/volumeUSB1/usbshare1-3/torrents/");
 	define("LANGUAGES",		"eng,ell");
 	// Use python hasher since its faster and can handles files larger than 2G
 	define("HASHER", 		dirname ( __FILE__ )."/hasher.py");
@@ -86,7 +87,7 @@
 						$id = trim($ids[1]);
 						
 						$sub_score = levenshtein($f, str_replace("\n"," ",strip_tags($title[2])));
-						if ($sub_score < $score) {
+						if ($sub_score < $score || $score < 0) {
 							$score = $sub_score;
 						}
 						$subtitles[$id] = $sub_score;					
