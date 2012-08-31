@@ -17,7 +17,7 @@
 	function downloadSubs($url,$path){
 		$id = md5($path.uniqid());
 		$cmds = array();
-		echo (DEBUG) ? "Downloading...\n" : '';
+		echo (DEBUG) ? "\n--------------------\n\nDownloading...".basename($path)."\n" : '';
 		$cmds[] = 'mkdir /tmp/'.$id.'/';
 		$cmds[] = 'wget -q -O "/tmp/'.$id.'/'.$id.'.zip" "'.$url.'"';
 		$cmds[] = 'cd "/tmp/'.$id.'/"';
@@ -62,7 +62,7 @@
 	{
 		echo (DEBUG) ? "Trying podnapisi..." : '';
 		$res = null;
-		$url = "http://www.podnapisi.net/en/ppodnapisi/search?sK=".$str;
+		$url = "http://www.podnapisi.net/en/ppodnapisi/search?sS=downloads&sO=desc&sK=".urlencode($str);
 		if ($s = @file_get_contents($url)){
 			if (preg_match("/\/en\/(.*?)\-subtitles\-p(.*?)\">/is",$s,$matches)){
 				$id = $matches[2];
@@ -70,6 +70,8 @@
 				preg_match("/\/en\/ppodnapisi\/download\/i\/$id\/k\/(.*?)\" title/is",$s,$link);
 				echo (DEBUG) ? "Found ".$link[1]."\n" : '';
 				$res = "http://www.podnapisi.net/en/ppodnapisi/download/i/".$id."/k/".$link[1];
+			} else {
+				echo (DEBUG) ? "Not Found\n" : "";
 			}
 		}
 		return $res;
@@ -92,8 +94,9 @@
 			foreach($h as $he){
 				if (strstr($he,"Location: http://www.opensubtitles.org/en/subtitles/")){
 					preg_match("/en\/subtitles\/(.*?)\//is",$he,$newID);
-					echo (DEBUG) ? "OS: ".$newID[1]." - Only one match found \n" : "";
-					return "http://www.opensubtitles.org/en/subtitleserve/sub/".$newID[1];		}
+					echo (DEBUG) ? "Found single match ".$newID[1]."\n" : "";
+					return "http://www.opensubtitles.org/en/subtitleserve/sub/".$newID[1];
+				}
 			}
 		} else {	
 			if ($s = @file_get_contents($url)){
@@ -118,12 +121,14 @@
 					foreach($subtitles as $subid => $sub) {
 		    			if ($sub == $score || $sub < $score*1.1) {
 		    				if (DEBUG) {
-		    					echo "Found. \n".$subid." - Score: ".$sub."\n";
+		    					echo "\nFound - ".$subid." - Score: ".$sub;
 		    				}
 							$download[$file][]  = "http://www.opensubtitles.org/en/subtitleserve/sub/".$subid;
 		    			}
 		    		}	
 		    		return $results;				   			
+				} else {
+					echo (DEBUG) ? "Not Found\n" :"";
 				}
 			}	
 		}		
