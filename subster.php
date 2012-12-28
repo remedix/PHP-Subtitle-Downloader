@@ -99,11 +99,7 @@
 	{
 		echo (DEBUG) ? "Trying podnapisi..." : '';
 		$res = null;
-<<<<<<< HEAD
 		$url = "http://www.podnapisi.net/en/ppodnapisi/search?sOH=1&sS=downloads&sO=desc&sK=".urlencode($str);
-=======
-		$url = "http://www.podnapisi.net/en/ppodnapisi/search?sS=downloads&sO=desc&sK=".urlencode($str);
->>>>>>> 83603d788120cc284d0db37dac1044f2270a32ef
 		if ($s = @file_get_contents($url)){
 			if (preg_match("/\/en\/(.*?)\-subtitles\-p(.*?)\">/is",$s,$matches)){
 				$id = $matches[2];
@@ -136,11 +132,7 @@
 				if (strstr($he,"Location: http://www.opensubtitles.org/en/subtitles/")){
 					preg_match("/en\/subtitles\/(.*?)\//is",$he,$newID);
 					echo (DEBUG) ? "Found single match ".$newID[1]."\n" : "";
-<<<<<<< HEAD
 					return array("http://www.opensubtitles.org/en/subtitleserve/sub/".$newID[1]);
-=======
-					return "http://www.opensubtitles.org/en/subtitleserve/sub/".$newID[1];
->>>>>>> 83603d788120cc284d0db37dac1044f2270a32ef
 				}
 			}
 		} else {	
@@ -165,16 +157,9 @@
 					$results = array();
 					foreach($subtitles as $subid => $sub) {
 		    			if ($sub == $score || $sub < $score*1.1) {
-<<<<<<< HEAD
 		    				// if (DEBUG) { echo "\nMatch Score for ".$subid." - ".$sub."\n"; 	}
 							//$download[$file][]  = "http://www.opensubtitles.org/en/subtitleserve/sub/".$subid;
 							$results[]  = "http://www.opensubtitles.org/en/subtitleserve/sub/".$subid;							
-=======
-		    				if (DEBUG) {
-		    					echo "\nFound - ".$subid." - Score: ".$sub;
-		    				}
-							$download[$file][]  = "http://www.opensubtitles.org/en/subtitleserve/sub/".$subid;
->>>>>>> 83603d788120cc284d0db37dac1044f2270a32ef
 		    			}
 		    		}	
 		    		
@@ -189,11 +174,8 @@
 				}
 			}	
 		}		
-	}	
+	}	 
 	
-	
-	
-
 	
 	// Scans for series at least X days old - If they don't have a sub, then try to find one for them - this should go on cron
 	if (RESCAN){
