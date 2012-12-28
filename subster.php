@@ -1,5 +1,10 @@
 <?	
-	define("DEBUG",			0);
+	if ($argv) foreach($argv as $a){
+		if (trim($a) == '--debug') define("DEBUG", 1);
+		if (trim($a) == '--rescan') define("RESCAN", 1);		
+	}
+	if (!defined("DEBUG")) define("DEBUG", 0);
+	if (!defined("RESCAN")) define("RESCAN", 0);	
 	define("HISTORY_FILE",	dirname ( __FILE__ )."/subster-history.txt");
 	define("VIDEOS_DIR",	"/volume1/video/");
 	define("LANGUAGES",		"eng,ell");
@@ -14,10 +19,10 @@
 	}
 	
 	// Commands to execute once we found a sub file to download
-	function downloadSubs($url,$path){
+	function downloadSubs($url,$path,$index){
 		$id = md5($path.uniqid());
 		$cmds = array();
-		echo (DEBUG) ? "Downloading...\n" : '';
+		echo (DEBUG) ? "\n--------------------\n\nDownloading...".basename($path)."\n" : '';
 		$cmds[] = 'mkdir /tmp/'.$id.'/';
 		$cmds[] = 'wget -q -O "/tmp/'.$id.'/'.$id.'.zip" "'.$url.'"';
 		$cmds[] = 'cd "/tmp/'.$id.'/"';
@@ -26,12 +31,12 @@
 	   	if (DEBUG) {
 			$cmd = implode("\n",$cmds);	   	
 	   		echo $cmd."\n\n";
+   		  	exec($cmd);	   		
 	   	} else {
 			$cmd = implode("; ",$cmds);	   	
    		  	exec($cmd);
    		}	
 		unset($cmds);   	
-		
 		echo (DEBUG) ? "Renaming...\n" : '';
 		// Rename the subtitles from whater.srt to originalfilename.srt with counter
    		// Get the srt file
@@ -41,15 +46,15 @@
 			print_r($res);
 		}
    		if ($res) {
-   			$i = count($res);
    			$cmd = array();
    			$f = basename($path);
    			foreach($res as $r){
-   				$cmd[] = 'mv -f "'.$r.'" "'.dirname($path).'/'.$f.'.'.$i--.'.srt"';
+   				$cmd[] = 'mv -f "'.$r.'" "'.dirname($path).'/'.$f.'.'.$index.'.srt"';   				
    			}
 		   	if (DEBUG) {
 		   		$cmds = implode('\n',$cmd);
 		   		echo $cmds."\n\n";
+	   		  	exec($cmds);
 		   	} else {
 		   		$cmds = implode('; ',$cmd);
 	   		  	exec($cmds);
@@ -58,11 +63,43 @@
 	}
 	
 	
+	function searchSubsmax($str){
+		echo (DEBUG) ? "Trying Subsmax..." : '';	
+		$url = "http://subsmax.com/api/10/";
+		$str = str_replace(".", "-", $str);
+		$str = str_replace(" ", "-", $str);
+    	if (preg_match("/(.*?)S([0-9]+)E([0-9]+)/is",$str,$title)){
+    		// Found TV Show
+    	} else if (preg_match("/(.*?)\-([0-9]{4})/is",$str,$title)){
+    		// Found Movie    	
+    	}
+    	$subs = array();
+    	if ($xml = @new SimpleXMLElement($url.$title[0].'-english', NULL, TRUE)){                                   
+	    	// Create a download list
+	    	foreach($xml->items->item as $i){
+	    		$p = explode("/", $i->link);
+	    		$size = count($p);
+	    		$id = $p[$size-1];
+	    		unset($p[$size-1]);
+	    		$suburl = trim(implode("/", $p).'/download-subtitle/'.$id);
+	    		$subs[] = $suburl;
+	    	}
+		}
+		if ($subs && DEBUG) {	
+			echo "Found\n";
+			echo implode("\n", $subs)."\n";
+		}
+		if (empty($subs) && DEBUG) echo "Not Found\n";
+		return $subs;
+	}
+	
+	
+	// Not used
 	function searchPodnapisi($str)
 	{
 		echo (DEBUG) ? "Trying podnapisi..." : '';
 		$res = null;
-		$url = "http://www.podnapisi.net/en/ppodnapisi/search?sK=".$str;
+		$url = "http://www.podnapisi.net/en/ppodnapisi/search?sOH=1&sS=downloads&sO=desc&sK=".urlencode($str);
 		if ($s = @file_get_contents($url)){
 			if (preg_match("/\/en\/(.*?)\-subtitles\-p(.*?)\">/is",$s,$matches)){
 				$id = $matches[2];
@@ -70,12 +107,14 @@
 				preg_match("/\/en\/ppodnapisi\/download\/i\/$id\/k\/(.*?)\" title/is",$s,$link);
 				echo (DEBUG) ? "Found ".$link[1]."\n" : '';
 				$res = "http://www.podnapisi.net/en/ppodnapisi/download/i/".$id."/k/".$link[1];
+			} else {
+				echo (DEBUG) ? "Not Found\n" : "";
 			}
 		}
 		return $res;
 	}
 	
-	
+
 	
 	function searchOpensubtitles($file,$hash)
 	{
@@ -92,8 +131,9 @@
 			foreach($h as $he){
 				if (strstr($he,"Location: http://www.opensubtitles.org/en/subtitles/")){
 					preg_match("/en\/subtitles\/(.*?)\//is",$he,$newID);
-					echo (DEBUG) ? "OS: ".$newID[1]." - Only one match found \n" : "";
-					return "http://www.opensubtitles.org/en/subtitleserve/sub/".$newID[1];		}
+					echo (DEBUG) ? "Found single match ".$newID[1]."\n" : "";
+					return array("http://www.opensubtitles.org/en/subtitleserve/sub/".$newID[1]);
+				}
 			}
 		} else {	
 			if ($s = @file_get_contents($url)){
@@ -112,18 +152,25 @@
 						if ($sub_score < $score || $score < 0) {
 							$score = $sub_score;
 						}
-						$subtitles[$id] = $sub_score;								
+						$subtitles[$id] = $sub_score;						
 					}
 					$results = array();
 					foreach($subtitles as $subid => $sub) {
 		    			if ($sub == $score || $sub < $score*1.1) {
-		    				if (DEBUG) {
-		    					echo "Found. \n".$subid." - Score: ".$sub."\n";
-		    				}
-							$download[$file][]  = "http://www.opensubtitles.org/en/subtitleserve/sub/".$subid;
+		    				// if (DEBUG) { echo "\nMatch Score for ".$subid." - ".$sub."\n"; 	}
+							//$download[$file][]  = "http://www.opensubtitles.org/en/subtitleserve/sub/".$subid;
+							$results[]  = "http://www.opensubtitles.org/en/subtitleserve/sub/".$subid;							
 		    			}
 		    		}	
+		    		
+		    		if ($results && DEBUG) {
+			    		echo "Found\n";
+			    		echo implode("\n", $results)."\n";
+		    		}
+		    		
 		    		return $results;				   			
+				} else {
+					echo (DEBUG) ? "Not Found\n" :"";
 				}
 			}	
 		}		
@@ -133,9 +180,9 @@
 	
 
 	
-	// Scans for series at least 3 days old - If they don't have a sub, then try to find one for them - this should go on cron
-	if (isset($argv[1]) && $argv[1]=='--rescan'){
-		$q = 'find '.VIDEOS_DIR.' -type f \( \( -iname "*.mkv" -or -iname "*.avi" \) ! -iname "sample-*" ! -iname "eaDir" ! -iname "*sample.mkv" ! -iname "*sample.avi" \) -ctime -10';
+	// Scans for series at least X days old - If they don't have a sub, then try to find one for them - this should go on cron
+	if (RESCAN){
+		$q = 'find '.VIDEOS_DIR.' -type f \( \( -iname "*.mkv" -or -iname "*.avi" \) ! -iname "sample-*" ! -iname "eaDir" ! -iname "*sample.mkv" ! -iname "*sample.avi" \) -ctime -10';		
 		exec($q,$res);
 		foreach($res as $r){
 			$find = 'find "'.dirname($r).'" -type f -iname "*.srt"';
@@ -143,8 +190,10 @@
 			if (!$findResults){
 				$hash = OpenSubtitlesHash($r);	
 				echo (DEBUG) ? "\n[rescan] Trying ". $hash." - ".basename($r)."\n" : "";
-				if ($found = searchOpensubtitles($r,$hash)) $download[$r][] = $found;
-				if ($found = searchPodnapisi(basename($r))) $download[$r][] = $found;							
+				
+				if ($foundArray = searchOpensubtitles($r,$hash)) foreach($foundArray as $found) $download[$r][] = $found;
+				if ($foundArray = searchSubsmax(basename($r))) foreach($foundArray as $found) $download[$r][] = $found;				
+			
 			}
 			unset($findResults);
 		}
@@ -164,15 +213,17 @@
 				fclose($fp);
 				$hash = OpenSubtitlesHash($f);	
 				echo (DEBUG) ? "\n[normal] Trying ". $hash." - ".basename($f)."\n" : "";
-				if ($found = searchOpensubtitles($f,$hash)) $download[$f][] = $found;
-				if ($found = searchPodnapisi(basename($f))) $download[$f][] = $found;	
+
+				if ($foundArray = searchOpensubtitles($r,$hash)) foreach($foundArray as $found) $download[$r][] = $found;
+				if ($foundArray = searchSubsmax(basename($r))) foreach($foundArray as $found) $download[$r][] = $found;		
+				
 			}
 		}
 	}
-	
+
 	foreach(array_filter($download) as $path=>$urls){
-		foreach($urls as $url){
-			downloadSubs($url,$path);
+		foreach($urls as $index=>$url){
+			downloadSubs($url,$path,$index);
 		}
 	}
 
